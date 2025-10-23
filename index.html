@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebDev IDE - VS Code Style</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --sidebar-bg: #333333;
+            --editor-bg: #1e1e1e;
+            --preview-bg: #ffffff;
+            --text-color: #cccccc;
+            --accent-color: #007acc;
+            --border-color: #3c3c3c;
+            --hover-color: #2a2d2e;
+            --active-color: #094771;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 60px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            transition: width 0.3s;
+            overflow: hidden;
+        }
+
+        .sidebar:hover {
+            width: 200px;
+            align-items: flex-start;
+            padding-left: 15px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .sidebar-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .sidebar-item.active {
+            background-color: var(--active-color);
+        }
+
+        .sidebar-item i {
+            font-size: 20px;
+            margin-right: 10px;
+            min-width: 20px;
+        }
+
+        .sidebar-item span {
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar:hover .sidebar-item span {
+            opacity: 1;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            height: 40px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .top-bar-item {
+            margin-right: 15px;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+
+        .top-bar-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .top-bar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        /* Editor and Preview */
+        .editor-preview {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .editor-tabs {
+            display: flex;
+            background-color: var(--editor-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .editor-tab {
+            padding: 8px 15px;
+            background-color: var(--editor-bg);
+            border-right: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+        }
+
+        .editor-tab.active {
+            background-color: var(--bg-color);
+        }
+
+        .editor-tab i {
+            margin-right: 5px;
+        }
+
+        .editor-tab .close {
+            margin-left: 8px;
+            opacity: 0.7;
+        }
+
+        .editor-tab .close:hover {
+            opacity: 1;
+        }
+
+        .editor {
+            flex: 1;
+            background-color: var(--editor-bg);
+            padding: 10px;
+            overflow: auto;
+        }
+
+        textarea.code-editor {
+            width: 100%;
+            height: 100%;
+            background-color: var(--editor-bg);
+            color: var(--text-color);
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--preview-bg);
+        }
+
+        .preview-header {
+            height: 40px;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid #ddd;
+            color: #333;
+        }
+
+        .preview {
+            flex: 1;
+            padding: 15px;
+            overflow: auto;
+            color: #333;
+        }
+
+        /* File Explorer */
+        .file-explorer {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .file-explorer-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-explorer-content {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .file-item {
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .file-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .file-item i {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .file-item.active {
+            background-color: var(--active-color);
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--sidebar-bg);
+            width: 400px;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 15px;
+            background-color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        .modal-body {
+            padding: 15px;
+        }
+
+        .modal-footer {
+            padding: 15px;
+            display: flex;
+            justify-content: flex-end;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px 10px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            color: var(--text-color);
+        }
+
+        .btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 22px;
+            background-color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+
+        .status-item {
+            margin-right: 15px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #333;
+            color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1001;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-item active">
+                <i class="fas fa-folder"></i>
+                <span>Explorer</span>
+            </div>
+            <div class="sidebar-item">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </div>
+            <div class="sidebar-item">
+                <i class="fab fa-github"></i>
+                <span>GitHub</span>
+            </div>
+            <div class="sidebar-item">
+                <i class="fas fa-cloud"></i>
+                <span>Firebase</span>
+            </div>
+            <div class="sidebar-item">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+        </div>
+
+        <!-- File Explorer -->
+        <div class="file-explorer">
+            <div class="file-explorer-header">
+                EXPLORER
+            </div>
+            <div class="file-explorer-content">
+                <div class="file-item active">
+                    <i class="fab fa-html5"></i>
+                    index.html
+                </div>
+                <div class="file-item">
+                    <i class="fab fa-css3-alt"></i>
+                    style.css
+                </div>
+                <div class="file-item">
+                    <i class="fab fa-js"></i>
+                    script.js
+                </div>
+                <div class="file-item">
+                    <i class="fas fa-image"></i>
+                    logo.png
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="top-bar-item">File</div>
+                <div class="top-bar-item">Edit</div>
+                <div class="top-bar-item">View</div>
+                <div class="top-bar-item">Run</div>
+                
+                <div class="top-bar-right">
+                    <div class="top-bar-item" id="login-btn">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </div>
+                    <div class="user-info" id="user-info" style="display: none;">
+                        <div class="user-avatar" id="user-avatar">U</div>
+                        <span id="user-name">User</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor and Preview -->
+            <div class="editor-preview">
+                <!-- Editor -->
+                <div class="editor-container">
+                    <div class="editor-tabs">
+                        <div class="editor-tab active">
+                            <i class="fab fa-html5"></i> index.html <i class="fas fa-times close"></i>
+                        </div>
+                        <div class="editor-tab">
+                            <i class="fab fa-css3-alt"></i> style.css <i class="fas fa-times close"></i>
+                        </div>
+                        <div class="editor-tab">
+                            <i class="fab fa-js"></i> script.js <i class="fas fa-times close"></i>
+                        </div>
+                    </div>
+                    <div class="editor">
+                        <textarea class="code-editor" id="html-editor" placeholder="Digite seu código HTML aqui...">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    &lt;title&gt;Meu Site&lt;/title&gt;
+    &lt;link rel="stylesheet" href="style.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Olá, Mundo!&lt;/h1&gt;
+    &lt;p&gt;Este é um exemplo de site criado no WebDev IDE.&lt;/p&gt;
+    &lt;button onclick="changeText()"&gt;Clique Aqui&lt;/button&gt;
+    &lt;script src="script.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</textarea>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-container">
+                    <div class="preview-header">
+                        <i class="fas fa-eye"></i> Preview
+                    </div>
+                    <div class="preview" id="preview">
+                        <!-- Preview será renderizado aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-item">UTF-8</div>
+                <div class="status-item">JavaScript</div>
+                <div class="status-item">Ln 1, Col 1</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Login
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="login-email">Email</label>
+                    <input type="email" id="login-email" class="form-control" placeholder="seu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Senha</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="Sua senha">
+                </div>
+                <div class="form-group">
+                    <button id="google-login" class="btn btn-primary" style="width: 100%;">
+                        <i class="fab fa-google"></i> Login com Google
+                    </button>
+                </div>
+                <p style="text-align: center; margin-top: 15px; font-size: 14px;">
+                    Não tem uma conta? <a href="#" id="show-register" style="color: var(--accent-color);">Registre-se</a>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="close-login">Cancelar</button>
+                <button class="btn btn-primary" id="do-login">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal" id="register-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                Criar Conta
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="register-name">Nome</label>
+                    <input type="text" id="register-name" class="form-control" placeholder="Seu nome">
+                </div>
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" class="form-control" placeholder="seu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Senha</label>
+                    <input type="password" id="register-password" class="form-control" placeholder="Sua senha">
+                </div>
+                <div class="form-group">
+                    <label for="register-confirm">Confirmar Senha</label>
+                    <input type="password" id="register-confirm" class="form-control" placeholder="Confirme sua senha">
+                </div>
+                <p style="text-align: center; margin-top: 15px; font-size: 14px;">
+                    Já tem uma conta? <a href="#" id="show-login" style="color: var(--accent-color);">Faça login</a>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="close-register">Cancelar</button>
+                <button class="btn btn-primary" id="do-register">Criar Conta</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            // Substitua com suas credenciais do Firebase
+            apiKey: "sua-api-key",
+            authDomain: "seu-projeto.firebaseapp.com",
+            projectId: "seu-projeto",
+            storageBucket: "seu-projeto.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "seu-app-id"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        // Elementos DOM
+        const htmlEditor = document.getElementById('html-editor');
+        const preview = document.getElementById('preview');
+        const loginBtn = document.getElementById('login-btn');
+        const userInfo = document.getElementById('user-info');
+        const userAvatar = document.getElementById('user-avatar');
+        const userName = document.getElementById('user-name');
+        const loginModal = document.getElementById('login-modal');
+        const registerModal = document.getElementById('register-modal');
+        const closeLogin = document.getElementById('close-login');
+        const closeRegister = document.getElementById('close-register');
+        const showRegister = document.getElementById('show-register');
+        const showLogin = document.getElementById('show-login');
+        const doLogin = document.getElementById('do-login');
+        const doRegister = document.getElementById('do-register');
+        const googleLogin = document.getElementById('google-login');
+        const toast = document.getElementById('toast');
+
+        // Estado da aplicação
+        let currentUser = null;
+        let files = {
+            'index.html': `<!DOCTYPE html>
+<html>
+<head>
+    <title>Meu Site</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Olá, Mundo!</h1>
+    <p>Este é um exemplo de site criado no WebDev IDE.</p>
+    <button onclick="changeText()">Clique Aqui</button>
+    <script src="script.js"></script>
+</body>
+</html>`,
+            'style.css': `body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f5f5f5;
+}
+
+h1 {
+    color: #007acc;
+}
+
+button {
+    background-color: #007acc;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #005a9e;
+}`,
+            'script.js': `function changeText() {
+    document.querySelector('h1').textContent = 'Texto Alterado!';
+    document.querySelector('p').textContent = 'Você clicou no botão!';
+}`
+        };
+
+        // Atualizar preview em tempo real
+        htmlEditor.addEventListener('input', updatePreview);
+
+        function updatePreview() {
+            files['index.html'] = htmlEditor.value;
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            
+            // Criar um documento com todos os arquivos
+            const htmlContent = files['index.html'];
+            const cssContent = files['style.css'];
+            const jsContent = files['script.js'];
+            
+            const fullHtml = htmlContent.replace(
+                '</head>', 
+                `<style>${cssContent}</style></head>`
+            ).replace(
+                '</body>', 
+                `<script>${jsContent}</script></body>`
+            );
+            
+            preview.innerHTML = '';
+            iframe.srcdoc = fullHtml;
+            preview.appendChild(iframe);
+        }
+
+        // Inicializar preview
+        updatePreview();
+
+        // Modal handlers
+        loginBtn.addEventListener('click', () => {
+            loginModal.style.display = 'flex';
+        });
+
+        closeLogin.addEventListener('click', () => {
+            loginModal.style.display = 'none';
+        });
+
+        closeRegister.addEventListener('click', () => {
+            registerModal.style.display = 'none';
+        });
+
+        showRegister.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginModal.style.display = 'none';
+            registerModal.style.display = 'flex';
+        });
+
+        showLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            registerModal.style.display = 'none';
+            loginModal.style.display = 'flex';
+        });
+
+        // Autenticação
+        doLogin.addEventListener('click', () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    currentUser = userCredential.user;
+                    showToast('Login realizado com sucesso!');
+                    loginModal.style.display = 'none';
+                    updateUI();
+                })
+                .catch((error) => {
+                    showToast('Erro no login: ' + error.message);
+                });
+        });
+
+        doRegister.addEventListener('click', () => {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const confirm = document.getElementById('register-confirm').value;
+            
+            if (password !== confirm) {
+                showToast('As senhas não coincidem!');
+                return;
+            }
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    currentUser = userCredential.user;
+                    
+                    // Salvar informações adicionais do usuário no Firestore
+                    return db.collection('users').doc(userCredential.user.uid).set({
+                        name: name,
+                        email: email,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(() => {
+                    showToast('Conta criada com sucesso!');
+                    registerModal.style.display = 'none';
+                    updateUI();
+                })
+                .catch((error) => {
+                    showToast('Erro no registro: ' + error.message);
+                });
+        });
+
+        googleLogin.addEventListener('click', () => {
+            // Implementar login com Google
+            showToast('Login com Google ainda não implementado');
+        });
+
+        // Observador de estado de autenticação
+        auth.onAuthStateChanged((user) => {
+            currentUser = user;
+            updateUI();
+        });
+
+        function updateUI() {
+            if (currentUser) {
+                loginBtn.style.display = 'none';
+                userInfo.style.display = 'flex';
+                userName.textContent = currentUser.displayName || currentUser.email;
+                userAvatar.textContent = (currentUser.displayName || currentUser.email).charAt(0).toUpperCase();
+                
+                // Carregar projetos do usuário
+                loadUserProjects();
+            } else {
+                loginBtn.style.display = 'block';
+                userInfo.style.display = 'none';
+            }
+        }
+
+        function loadUserProjects() {
+            if (!currentUser) return;
+            
+            db.collection('projects')
+                .where('userId', '==', currentUser.uid)
+                .get()
+                .then((querySnapshot) => {
+                    // Implementar carregamento de projetos
+                    console.log('Projetos carregados:', querySnapshot.size);
+                })
+                .catch((error) => {
+                    console.error('Erro ao carregar projetos:', error);
+                });
+        }
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 3000);
+        }
+
+        // Implementar funcionalidades adicionais:
+        // - Upload de arquivos
+        // - Exportar como ZIP
+        // - Integração com GitHub
+        // - Salvar projetos no Firestore
+
+        // Exemplo de função para salvar projeto
+        function saveProject() {
+            if (!currentUser) {
+                showToast('Faça login para salvar projetos');
+                return;
+            }
+            
+            const projectData = {
+                name: 'Meu Projeto',
+                files: files,
+                userId: currentUser.uid,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            db.collection('projects').add(projectData)
+                .then(() => {
+                    showToast('Projeto salvo com sucesso!');
+                })
+                .catch((error) => {
+                    showToast('Erro ao salvar projeto: ' + error.message);
+                });
+        }
+
+        // Exemplo de função para exportar como ZIP
+        function exportAsZip() {
+            showToast('Exportando projeto como ZIP...');
+            // Implementar lógica de exportação ZIP
+        }
+
+        // Adicionar event listeners para os itens da sidebar
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', function() {
+                document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Implementar ações para cada item da sidebar
+                const text = this.querySelector('span').textContent;
+                switch(text) {
+                    case 'Explorer':
+                        // Já está visível
+                        break;
+                    case 'Search':
+                        showToast('Funcionalidade de busca em desenvolvimento');
+                        break;
+                    case 'GitHub':
+                        showToast('Integração com GitHub em desenvolvimento');
+                        break;
+                    case 'Firebase':
+                        showToast('Painel Firebase em desenvolvimento');
+                        break;
+                    case 'Settings':
+                        showToast('Configurações em desenvolvimento');
+                        break;
+                }
+            });
+        });
+
+        // Adicionar event listeners para as abas do editor
+        document.querySelectorAll('.editor-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                if (this.classList.contains('active')) return;
+                
+                document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Implementar troca de arquivos no editor
+                const fileType = this.querySelector('i').className.split(' ')[1];
+                let fileContent = '';
+                
+                switch(fileType) {
+                    case 'fa-html5':
+                        fileContent = files['index.html'];
+                        break;
+                    case 'fa-css3-alt':
+                        fileContent = files['style.css'];
+                        break;
+                    case 'fa-js':
+                        fileContent = files['script.js'];
+                        break;
+                }
+                
+                htmlEditor.value = fileContent;
+                updatePreview();
+            });
+        });
+    </script>
+</body>
+</html>
