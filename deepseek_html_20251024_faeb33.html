@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VsCode-Tdc - Web IDE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --sidebar-bg: #252526;
+            --editor-bg: #1e1e1e;
+            --preview-bg: #ffffff;
+            --text-color: #cccccc;
+            --accent-color: #007acc;
+            --border-color: #3c3c3c;
+            --hover-color: #2a2d2e;
+            --active-color: #094771;
+            --success-color: #4CAF50;
+            --warning-color: #ff9800;
+            --error-color: #f44336;
+            --ai-color: #9c27b0;
+        }
+
+        [data-theme="purple"] {
+            --accent-color: #9c27b0;
+            --active-color: #7b1fa2;
+        }
+
+        [data-theme="red"] {
+            --accent-color: #f44336;
+            --active-color: #d32f2f;
+        }
+
+        [data-theme="green"] {
+            --accent-color: #4CAF50;
+            --active-color: #388E3C;
+        }
+
+        [data-theme="dark-blue"] {
+            --accent-color: #1565c0;
+            --active-color: #0d47a1;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d30 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-logo {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .logo-icon {
+            font-size: 48px;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        .logo-subtext {
+            font-size: 14px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            font-size: 16px;
+            color: var(--text-color);
+        }
+
+        .loading-details {
+            font-size: 12px;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 60px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            transition: width 0.3s;
+            overflow: hidden;
+            z-index: 10;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .sidebar.expanded {
+            width: 200px;
+            align-items: flex-start;
+            padding-left: 15px;
+        }
+
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            width: 100%;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .sidebar-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .sidebar-item.active {
+            background-color: var(--active-color);
+        }
+
+        .sidebar-item i {
+            font-size: 20px;
+            margin-right: 10px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-item span {
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .sidebar.expanded .sidebar-item span {
+            opacity: 1;
+        }
+
+        .sidebar-badge {
+            position: absolute;
+            right: 10px;
+            background: var(--accent-color);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 10px;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            height: 45px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid var(--border-color);
+            justify-content: space-between;
+        }
+
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+        }
+
+        .top-bar-item {
+            margin-right: 15px;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .top-bar-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+
+        .user-info:hover {
+            background-color: var(--hover-color);
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-weight: bold;
+            overflow: hidden;
+            border: 2px solid var(--accent-color);
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Editor and Preview */
+        .editor-preview {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            min-width: 0;
+        }
+
+        .editor-tabs {
+            display: flex;
+            background-color: var(--editor-bg);
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        .editor-tab {
+            padding: 10px 15px;
+            background-color: var(--editor-bg);
+            border-right: 1px solid var(--border-color);
+            cursor: pointer;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+            min-width: 120px;
+        }
+
+        .editor-tab:hover {
+            background-color: var(--hover-color);
+        }
+
+        .editor-tab.active {
+            background-color: var(--bg-color);
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        .editor-tab i {
+            margin-right: 5px;
+        }
+
+        .editor-tab .close {
+            margin-left: 8px;
+            opacity: 0.7;
+            padding: 2px;
+            border-radius: 2px;
+        }
+
+        .editor-tab .close:hover {
+            opacity: 1;
+            background-color: var(--hover-color);
+        }
+
+        .editor {
+            flex: 1;
+            background-color: var(--editor-bg);
+            padding: 15px;
+            overflow: auto;
+            position: relative;
+        }
+
+        textarea.code-editor {
+            width: 100%;
+            height: 100%;
+            background-color: var(--editor-bg);
+            color: var(--text-color);
+            border: none;
+            outline: none;
+            resize: none;
+            font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            tab-size: 4;
+        }
+
+        .preview-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--preview-bg);
+            min-width: 0;
+        }
+
+        .preview-header {
+            height: 45px;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid #ddd;
+            color: #333;
+        }
+
+        .preview {
+            flex: 1;
+            overflow: auto;
+            color: #333;
+        }
+
+        /* File Explorer */
+        .file-explorer {
+            width: 280px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: width 0.3s;
+        }
+
+        .file-explorer.collapsed {
+            width: 0;
+            border-right: none;
+        }
+
+        .file-explorer-header {
+            padding: 15px;
+            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .file-explorer-content {
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .file-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            margin-bottom: 2px;
+            transition: all 0.2s;
+        }
+
+        .file-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .file-item.active {
+            background-color: var(--active-color);
+        }
+
+        .file-item i {
+            margin-right: 8px;
+            font-size: 14px;
+            width: 16px;
+            text-align: center;
+        }
+
+        .file-actions {
+            margin-left: auto;
+            display: flex;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .file-item:hover .file-actions {
+            opacity: 1;
+        }
+
+        .file-action {
+            margin-left: 5px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            transition: background-color 0.2s;
+        }
+
+        .file-action:hover {
+            background-color: var(--hover-color);
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: var(--sidebar-bg);
+            width: 90%;
+            max-width: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-header {
+            padding: 20px;
+            background: linear-gradient(135deg, var(--accent-color), var(--active-color));
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            display: flex;
+            justify-content: flex-end;
+            border-top: 1px solid var(--border-color);
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-color);
+            outline: none;
+        }
+
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-color), var(--active-color));
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 122, 204, 0.3);
+        }
+
+        .btn-ai {
+            background: linear-gradient(135deg, var(--ai-color), #7b1fa2);
+            color: white;
+        }
+
+        .btn-ai:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(156, 39, 176, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #5a6268;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            height: 25px;
+            background: linear-gradient(135deg, var(--accent-color), var(--active-color));
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 12px;
+            justify-content: space-between;
+        }
+
+        .status-left, .status-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background-color: #333;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+            display: none;
+            max-width: 350px;
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .toast.success {
+            border-left-color: var(--success-color);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning-color);
+        }
+
+        .toast.error {
+            border-left-color: var(--error-color);
+        }
+
+        .toast.ai {
+            border-left-color: var(--ai-color);
+        }
+
+        /* AI API Keys */
+        .api-keys {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .api-key-item {
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            transition: border-color 0.2s;
+        }
+
+        .api-key-item:hover {
+            border-color: var(--accent-color);
+        }
+
+        .api-key-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .api-key-logo {
+            width: 32px;
+            height: 32px;
+            margin-right: 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: white;
+        }
+
+        .api-key-status {
+            margin-left: auto;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .status-valid {
+            background-color: var(--success-color);
+        }
+
+        .status-invalid {
+            background-color: var(--error-color);
+        }
+
+        .status-recommended {
+            background-color: var(--warning-color);
+        }
+
+        /* AI Assistant */
+        .ai-assistant {
+            position: fixed;
+            top: 60px;
+            right: 20px;
+            background: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 100;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            display: none;
+            min-width: 300px;
+        }
+
+        .ai-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ai-response {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: var(--bg-color);
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .ai-typing {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--ai-color);
+            font-style: italic;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 3px;
+        }
+
+        .typing-dots span {
+            width: 4px;
+            height: 4px;
+            background: var(--ai-color);
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(1) { animation-delay: 0s; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        /* AI Editing Animation */
+        .ai-editing {
+            position: relative;
+        }
+
+        .ai-editing::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(156, 39, 176, 0.1), transparent);
+            animation: ai-shine 2s infinite;
+        }
+
+        @keyframes ai-shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: 60px;
+                flex-direction: row;
+                padding: 0;
+                align-items: center;
+                justify-content: space-around;
+            }
+            
+            .sidebar.expanded {
+                width: 100%;
+                height: auto;
+                flex-wrap: wrap;
+                padding: 10px;
+            }
+            
+            .sidebar-item {
+                width: auto;
+                margin-bottom: 0;
+            }
+            
+            .sidebar-item span {
+                display: none;
+            }
+            
+            .sidebar.expanded .sidebar-item span {
+                display: inline;
+            }
+            
+            .file-explorer {
+                position: absolute;
+                top: 105px;
+                left: 0;
+                height: calc(100% - 105px);
+                z-index: 5;
+                box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+            }
+            
+            .editor-preview {
+                flex-direction: column;
+            }
+            
+            .preview-container {
+                height: 40%;
+            }
+            
+            .editor-container {
+                height: 60%;
+            }
+
+            .ai-assistant {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 90%;
+                max-width: 400px;
+            }
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid var(--accent-color);
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: absolute;
+            background-color: var(--sidebar-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 5px 0;
+            z-index: 1002;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: none;
+            min-width: 150px;
+        }
+
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        /* GitHub Integration */
+        .github-repos {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .repo-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .repo-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .repo-item:last-child {
+            border-bottom: none;
+        }
+
+        .repo-name {
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .repo-desc {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        /* Theme Selector */
+        .theme-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .theme-option {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s;
+        }
+
+        .theme-option:hover {
+            transform: scale(1.1);
+        }
+
+        .theme-option.active {
+            border-color: white;
+            transform: scale(1.1);
+        }
+
+        .theme-blue {
+            background: linear-gradient(135deg, #007acc, #005a9e);
+        }
+
+        .theme-purple {
+            background: linear-gradient(135deg, #9c27b0, #7b1fa2);
+        }
+
+        .theme-red {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+        }
+
+        .theme-green {
+            background: linear-gradient(135deg, #4CAF50, #388E3C);
+        }
+
+        .theme-dark-blue {
+            background: linear-gradient(135deg, #1565c0, #0d47a1);
+        }
+
+        /* Project List */
+        .project-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .project-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .project-item:hover {
+            background-color: var(--hover-color);
+        }
+
+        .project-item:last-child {
+            border-bottom: none;
+        }
+
+        .project-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .project-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* Code Animation */
+        .code-highlight {
+            background: rgba(156, 39, 176, 0.2);
+            border-left: 3px solid var(--ai-color);
+            padding: 2px 5px;
+            margin: 2px 0;
+            transition: all 0.3s ease;
+        }
+
+        .code-insertion {
+            animation: codeInsert 0.5s ease-out;
+        }
+
+        @keyframes codeInsert {
+            0% {
+                background: rgba(76, 175, 80, 0.3);
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            100% {
+                background: transparent;
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .code-deletion {
+            animation: codeDelete 0.3s ease-out;
+        }
+
+        @keyframes codeDelete {
+            0% {
+                background: rgba(244, 67, 54, 0.3);
+                opacity: 1;
+            }
+            100% {
+                background: transparent;
+                opacity: 0;
+                height: 0;
+                padding: 0;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body data-theme="blue">
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-logo">
+            <div class="logo-icon">
+                <i class="fas fa-code"></i>
+            </div>
+            <div class="logo-text">VsCode-Tdc</div>
+            <div class="logo-subtext">by DoguinhoTdc • Equipe Discord</div>
+        </div>
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Inicializando ambiente de desenvolvimento</div>
+        <div class="loading-details" id="loading-details">Conectando ao Firebase...</div>
+    </div>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-item active" id="explorer-btn">
+                <i class="fas fa-folder"></i>
+                <span>Explorer</span>
+            </div>
+            <div class="sidebar-item" id="search-btn">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </div>
+            <div class="sidebar-item" id="github-btn">
+                <i class="fab fa-github"></i>
+                <span>GitHub</span>
+                <div class="sidebar-badge" id="github-badge">0</div>
+            </div>
+            <div class="sidebar-item" id="ai-btn">
+                <i class="fas fa-robot"></i>
+                <span>AI Assistant</span>
+            </div>
+            <div class="sidebar-item" id="projects-btn">
+                <i class="fas fa-folder-open"></i>
+                <span>Projects</span>
+                <div class="sidebar-badge" id="projects-badge">0</div>
+            </div>
+            <div class="sidebar-item" id="settings-btn">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </div>
+            <div class="sidebar-item" id="theme-toggle">
+                <i class="fas fa-palette"></i>
+                <span>Theme</span>
+            </div>
+        </div>
+
+        <!-- File Explorer -->
+        <div class="file-explorer" id="file-explorer">
+            <div class="file-explorer-header">
+                <span>EXPLORER</span>
+                <div>
+                    <i class="fas fa-plus file-action" id="new-file-btn" title="New File"></i>
+                    <i class="fas fa-folder-plus file-action" id="new-folder-btn" title="New Folder"></i>
+                    <i class="fas fa-upload file-action" id="upload-file-btn" title="Upload File"></i>
+                </div>
+            </div>
+            <div class="file-explorer-content" id="file-tree">
+                <!-- File tree will be populated here -->
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="top-bar-left">
+                    <div class="top-bar-item">File</div>
+                    <div class="top-bar-item">Edit</div>
+                    <div class="top-bar-item">View</div>
+                    <div class="top-bar-item">Run</div>
+                    <div class="top-bar-item">Terminal</div>
+                    <div class="top-bar-item" id="ai-assistant-btn" style="background: var(--ai-color);">
+                        <i class="fas fa-robot"></i> AI Assistant
+                    </div>
+                </div>
+                
+                <div class="top-bar-right">
+                    <div class="top-bar-item" id="undo-btn" title="Undo (Ctrl+Z)">
+                        <i class="fas fa-undo"></i>
+                    </div>
+                    <div class="top-bar-item" id="save-btn" title="Save (Ctrl+S)">
+                        <i class="fas fa-save"></i>
+                    </div>
+                    <div class="top-bar-item" id="github-pages-btn" title="Deploy to GitHub Pages">
+                        <i class="fas fa-rocket"></i>
+                    </div>
+                    <div class="top-bar-item" id="export-btn" title="Export as ZIP">
+                        <i class="fas fa-file-archive"></i>
+                    </div>
+                    <div class="top-bar-item" id="login-btn">
+                        <i class="fab fa-github"></i> Login with GitHub
+                    </div>
+                    <div class="user-info" id="user-info" style="display: none;">
+                        <div class="user-avatar" id="user-avatar">
+                            <img id="user-avatar-img" src="" alt="User Avatar">
+                        </div>
+                        <span id="user-name">User</span>
+                        <i class="fas fa-sign-out-alt" style="margin-left: 10px; cursor: pointer;" id="logout-btn" title="Logout"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Editor and Preview -->
+            <div class="editor-preview">
+                <!-- Editor -->
+                <div class="editor-container">
+                    <div class="editor-tabs" id="editor-tabs">
+                        <!-- Tabs will be added dynamically -->
+                    </div>
+                    <div class="editor">
+                        <textarea class="code-editor" id="code-editor" placeholder="// Comece a digitar seu código...&#10;// As alterações são salvas automaticamente no Firebase&#10;// Use o AI Assistant para ajudar no desenvolvimento"></textarea>
+                    </div>
+                </div>
+
+                <!-- Preview -->
+                <div class="preview-container">
+                    <div class="preview-header">
+                        <i class="fas fa-eye"></i> Live Preview
+                        <div style="margin-left: auto;">
+                            <i class="fas fa-mobile-alt" id="mobile-preview-btn" title="Mobile View"></i>
+                            <i class="fas fa-desktop" id="desktop-preview-btn" title="Desktop View" style="margin-left: 10px;"></i>
+                            <i class="fas fa-sync-alt" id="refresh-preview-btn" title="Refresh Preview" style="margin-left: 10px;"></i>
+                        </div>
+                    </div>
+                    <div class="preview" id="preview">
+                        <!-- Preview será renderizado aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <div class="status-left">
+                    <div class="status-item" id="file-type">
+                        <i class="fab fa-html5"></i> HTML
+                    </div>
+                    <div class="status-item" id="cursor-position">
+                        <i class="fas fa-i-cursor"></i> Ln 1, Col 1
+                    </div>
+                    <div class="status-item" id="encoding">
+                        <i class="fas fa-code"></i> UTF-8
+                    </div>
+                </div>
+                <div class="status-right">
+                    <div class="status-item" id="auto-save">
+                        <i class="fas fa-bolt"></i> Auto-save: ON
+                    </div>
+                    <div class="status-item" id="sync-status">
+                        <i class="fas fa-cloud"></i> Sync: Online
+                    </div>
+                    <div class="status-item" id="ai-status">
+                        <i class="fas fa-robot"></i> AI: Ready
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Assistant Popup -->
+    <div class="ai-assistant" id="ai-assistant">
+        <div class="ai-header">
+            <h3><i class="fas fa-robot"></i> AI Assistant</h3>
+            <i class="fas fa-times" id="close-ai-assistant" style="cursor: pointer;"></i>
+        </div>
+        <div class="form-group">
+            <label>O que você gostaria que eu faça no código?</label>
+            <textarea class="form-control" id="ai-prompt" placeholder="Ex: Adicione um botão que muda a cor de fundo, Corrija os erros no CSS, Melhore o design responsivo..." rows="4"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Arquivo para modificar:</label>
+            <select class="form-control" id="ai-file-select">
+                <!-- Options will be populated dynamically -->
+            </select>
+        </div>
+        <div class="ai-response" id="ai-response" style="display: none;">
+            <!-- AI response will be shown here -->
+        </div>
+        <div class="form-group">
+            <button class="btn btn-ai" id="generate-code" style="width: 100%;">
+                <i class="fas fa-magic"></i> Gerar Código
+            </button>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fab fa-github"></i> Login with GitHub
+                <i class="fas fa-times" id="close-login"></i>
+            </div>
+            <div class="modal-body">
+                <p>Conecte sua conta do GitHub para acessar repositórios e fazer deploy no GitHub Pages.</p>
+                <div class="form-group" style="text-align: center; margin-top: 25px;">
+                    <button id="github-login" class="btn btn-primary" style="width: 100%; padding: 15px;">
+                        <i class="fab fa-github"></i> Login with GitHub
+                    </button>
+                </div>
+                <div style="text-align: center; margin-top: 20px; padding: 15px; background: var(--bg-color); border-radius: 6px;">
+                    <small>Desenvolvido por <strong>DoguinhoTdc</strong> • Equipe Discord</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Configuration Modal -->
+    <div class="modal" id="ai-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-robot"></i> AI Configuration
+                <i class="fas fa-times" id="close-ai"></i>
+            </div>
+            <div class="modal-body">
+                <p>Configure suas chaves de API para assistência de código. Recomendamos DeepSeek ou Groq para melhor performance.</p>
+                
+                <div class="api-keys">
+                    <div class="api-key-item">
+                        <div class="api-key-header">
+                            <div class="api-key-logo" style="background: linear-gradient(135deg, #10a37f, #0d8c6d);">DS</div>
+                            <span>DeepSeek</span>
+                            <span class="api-key-status status-recommended">Recomendado</span>
+                        </div>
+                        <input type="password" class="form-control deepseek-key" placeholder="Digite sua DeepSeek API Key">
+                    </div>
+                    
+                    <div class="api-key-item">
+                        <div class="api-key-header">
+                            <div class="api-key-logo" style="background: linear-gradient(135deg, #4a4a4a, #333);">G</div>
+                            <span>Groq</span>
+                            <span class="api-key-status status-valid">Válida</span>
+                        </div>
+                        <input type="password" class="form-control groq-key" placeholder="Digite sua Groq API Key">
+                    </div>
+                    
+                    <div class="api-key-item">
+                        <div class="api-key-header">
+                            <div class="api-key-logo" style="background: linear-gradient(135deg, #8e44ad, #7d3c98);">C</div>
+                            <span>Claude</span>
+                            <span class="api-key-status status-invalid">Inválida</span>
+                        </div>
+                        <input type="password" class="form-control claude-key" placeholder="Digite sua Claude API Key">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Provedor de IA Atual:</label>
+                    <select class="form-control" id="ai-provider">
+                        <option value="deepseek">DeepSeek (Recomendado)</option>
+                        <option value="groq">Groq</option>
+                        <option value="claude">Claude</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <button id="test-ai" class="btn btn-primary">
+                        <i class="fas fa-vial"></i> Testar API Keys
+                    </button>
+                    <button id="save-ai" class="btn btn-success">
+                        <i class="fas fa-save"></i> Salvar Configuração
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settings-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-cog"></i> Configurações
+                <i class="fas fa-times" id="close-settings"></i>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Tema</label>
+                    <div class="theme-selector">
+                        <div class="theme-option theme-blue active" data-theme="blue" title="Azul Padrão"></div>
+                        <div class="theme-option theme-purple" data-theme="purple" title="Roxo"></div>
+                        <div class="theme-option theme-red" data-theme="red" title="Vermelho"></div>
+                        <div class="theme-option theme-green" data-theme="green" title="Verde"></div>
+                        <div class="theme-option theme-dark-blue" data-theme="dark-blue" title="Azul Escuro"></div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Auto-save</label>
+                    <select class="form-control" id="auto-save-setting">
+                        <option value="on">Ativado</option>
+                        <option value="off">Desativado</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tamanho da Fonte: <span id="font-size-value">14px</span></label>
+                    <input type="range" id="font-size" min="12" max="24" value="14" class="form-control">
+                </div>
+                
+                <div class="form-group">
+                    <label>Modo de Preview</label>
+                    <select class="form-control" id="preview-mode">
+                        <option value="desktop">Desktop</option>
+                        <option value="mobile">Mobile</option>
+                        <option value="responsive">Responsivo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="reset-settings">
+                    <i class="fas fa-undo"></i> Restaurar Padrões
+                </button>
+                <button class="btn btn-primary" id="save-settings">
+                    <i class="fas fa-save"></i> Salvar Configurações
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects Modal -->
+    <div class="modal" id="projects-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-folder-open"></i> Meus Projetos
+                <i class="fas fa-times" id="close-projects"></i>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <button id="create-project" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Criar Novo Projeto
+                    </button>
+                    <button id="refresh-projects" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                
+                <div class="project-list" id="projects-list">
+                    <!-- Projects will be listed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Repos Modal -->
+    <div class="modal" id="github-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fab fa-github"></i> Repositórios GitHub
+                <i class="fas fa-times" id="close-github"></i>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <button id="create-repo" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Criar Novo Repositório
+                    </button>
+                    <button id="refresh-repos" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                
+                <div class="github-repos" id="repos-list">
+                    <!-- Repositories will be listed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Pages Modal -->
+    <div class="modal" id="github-pages-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-rocket"></i> Deploy no GitHub Pages
+                <i class="fas fa-times" id="close-github-pages"></i>
+            </div>
+            <div class="modal-body">
+                <div id="github-pages-content">
+                    <p>Faça deploy do seu projeto no GitHub Pages para torná-lo publicamente acessível.</p>
+                    <div class="form-group">
+                        <label>Selecionar Repositório</label>
+                        <select class="form-control" id="pages-repo-select">
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Branch</label>
+                        <select class="form-control" id="pages-branch-select">
+                            <option value="main">main</option>
+                            <option value="master">master</option>
+                            <option value="gh-pages">gh-pages</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <div class="badge warning">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Seu repositório precisa ser público para o GitHub Pages funcionar.
+                        </div>
+                    </div>
+                    <div class="form-group" id="deploy-status" style="display: none;">
+                        <div class="spinner"></div>
+                        <span>Fazendo deploy no GitHub Pages...</span>
+                    </div>
+                </div>
+                <div id="github-pages-success" style="display: none; text-align: center;">
+                    <i class="fas fa-check-circle" style="font-size: 48px; color: var(--success-color); margin-bottom: 15px;"></i>
+                    <h3>Deploy Realizado com Sucesso!</h3>
+                    <p>Seu site está agora disponível em:</p>
+                    <p><a href="#" id="pages-url" target="_blank" style="color: var(--accent-color); font-weight: bold; font-size: 16px;"></a></p>
+                    <p>Pode levar alguns minutos para as alterações serem propagadas.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-deploy">Cancelar</button>
+                <button class="btn btn-primary" id="deploy-pages">
+                    <i class="fas fa-rocket"></i> Fazer Deploy
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" id="context-rename">
+            <i class="fas fa-edit"></i> Renomear
+        </div>
+        <div class="context-menu-item" id="context-delete">
+            <i class="fas fa-trash"></i> Excluir
+        </div>
+        <div class="context-menu-item" id="context-download">
+            <i class="fas fa-download"></i> Download
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Firebase and App Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
